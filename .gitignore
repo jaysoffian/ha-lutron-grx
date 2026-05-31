@@ -1,0 +1,12 @@
+# Local mise overrides (env: GRX_HOST / GRX_PORT)
+mise.local.toml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Editors / OS
+.DS_Store

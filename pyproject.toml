@@ -1,0 +1,83 @@
+[project]
+name = "ha-lutron-grx"
+version = "0.1.0"
+requires-python = ">=3.14"
+
+[dependency-groups]
+cli = [
+    "typer-slim",
+]
+dev = [
+    "homeassistant",
+    "pytest",
+    "ty",
+]
+
+[tool.uv]
+# Install the CLI deps in the dev environment too, so type-checkers and the
+# pre-commit hooks can resolve them.
+default-groups = ["dev", "cli"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "A",      # flake8-builtins — shadowing builtins
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "PL",     # pylint (ruff reimplementation)
+    "RUF",    # ruff-specific
+    "PIE",    # flake8-pie
+    "RET",    # flake8-return
+    "PERF",   # perflint
+    "FURB",   # refurb
+    "LOG",    # flake8-logging
+    "G",      # flake8-logging-format
+    "T20",    # flake8-print — catch stray prints
+    "PTH",    # flake8-use-pathlib
+    "TID",    # flake8-tidy-imports
+]
+
+ignore = [
+    "PLR09",   # too-many-* (arguments, branches, statements)
+    "PLR2004", # magic-value-comparison — too noisy for protocol code
+    "PLW2901", # redefined-loop-variable
+    "SIM108",  # use-ternary-expression — often less readable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"cli.py" = ["T20"]  # CLI prints to stdout by design
+
+[tool.ty.environment]
+extra-paths = ["custom_components", "custom_components/lutron_grx"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+extraPaths = ["custom_components", "custom_components/lutron_grx"]
+# HA's CachedProperties metaclass + multi-inheritance (CoordinatorEntity + platform
+# entity) causes false positives on `available`, `entity_description`, and
+# `last_update_success`. Pyright can't reason through the metaclass.
+reportIncompatibleVariableOverride = false
+# HA stubs propagate Any/Unknown through config dicts, vol schemas, Store, and
+# CachedProperties — too pervasive to fix with inline ignores.
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+# HA re-exports many public symbols (e.g. ColorMode, LightEntityFeature) from
+# submodules without listing them in __all__, so the canonical public imports
+# trip reportPrivateImportUsage.
+reportPrivateImportUsage = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+filterwarnings = [
+    "ignore:Inheritance class HomeAssistantApplication from web.Application is discouraged:DeprecationWarning",
+]

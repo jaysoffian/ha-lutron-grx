@@ -1,0 +1,41 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This GrafikEye control interface is already configured.",
+      "reconfigure_successful": "Connection settings updated."
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the GrafikEye GRX-CI-RS232. Please check the host and port of the TCP-to-serial adapter."
+    },
+    "step": {
+      "reconfigure": {
+        "data": {
+          "host": "Host IP Address",
+          "port": "Port"
+        },
+        "description": "Update the IP address and port of the GRX-CI-RS232 TCP-to-serial adapter.",
+        "title": "Reconfigure GrafikEye Connection"
+      },
+      "user": {
+        "data": {
+          "host": "Host IP Address",
+          "port": "Port"
+        },
+        "description": "Enter the IP address and port of the GRX-CI-RS232 TCP-to-serial adapter.",
+        "title": "Configure GrafikEye Connection"
+      }
+    }
+  },
+  "entity": {
+    "select": {
+      "scene": {
+        "name": "Scene"
+      }
+    },
+    "sensor": {
+      "code_rev": {
+        "name": "Code Revision"
+      }
+    }
+  }
+}

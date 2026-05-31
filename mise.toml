@@ -1,0 +1,16 @@
+[tools]
+uv = "latest"
+ruff = "latest"
+prek = "latest"
+
+[tasks.check]
+description = "Run all pre-commit hooks via prek"
+run = "mise x -- prek run --all-files"
+
+[tasks.test]
+description = "Run the test suite"
+run = "mise x -- uv run pytest tests/ -v"
+
+[tasks.hassfest]
+description = "Validate the integration manifest with hassfest"
+run = "podman run --rm -v \"$PWD/custom_components:/github/workspace\" ghcr.io/home-assistant/hassfest"
