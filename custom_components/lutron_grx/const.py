@@ -4,12 +4,30 @@ DOMAIN = "lutron_grx"
 
 DEFAULT_PORT = 4196
 
-# This integration controls a single GRAFIK Eye control unit, hard-coded to
-# MUX address 1.  The address appears both in the SELECT SCENE command
-# (``:A<scene>1``) and as index 0 of the 8-character scene-status field.
-CONTROL_UNIT = "1"
+# Defaults preserve the original single-GRX-3504 behaviour.  A config entry may
+# override these with one or more control units on the MUX link.
+DEFAULT_UNIT = 1
+DEFAULT_MODEL = "GRX-3504"
+DEFAULT_ZONE_COUNT = 4
+
+# The MUX link supports up to eight control unit addresses.  Each address
+# exposes at most eight zones; a 16- or 24-zone unit occupies two or three
+# consecutive addresses.
+MAX_UNITS = 8
+MAX_ZONES = 24
+ZONES_PER_ADDRESS = 8
+
+# Kept for backwards compatibility with the original single-unit integration.
+CONTROL_UNIT = str(DEFAULT_UNIT)
+ZONE_COUNT = DEFAULT_ZONE_COUNT
+
+CONF_ADDRESS = "address"
+CONF_MODEL = "model"
+CONF_UNITS = "units"
+CONF_ZONES = "zones"
 
 ERROR_CANNOT_CONNECT = "cannot_connect"
+ERROR_INVALID_UNITS = "invalid_units"
 
 MIN_SCENE = 0
 MAX_SCENE = 16
@@ -18,8 +36,6 @@ MAX_SCENE = 16
 # interface reports as scene 17 ("H"), distinct from the 16 presets.
 SCENE_MANUAL = 17
 
-# The GRX-3504 has four zones. Intensities are hex 00-7F (0-99%).
-ZONE_COUNT = 4
 MAX_INTENSITY = 0x7F
 
 # Select options are the bare scene numbers "0" … "16" (where "0" is off);

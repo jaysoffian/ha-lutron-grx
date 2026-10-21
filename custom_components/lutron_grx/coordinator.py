@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .client import GrxState, LutronGrxClient
+from .client import GrxState, LutronGrxClient, unit_configs_from_data
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class LutronGrxCoordinator(DataUpdateCoordinator[GrxState]):
             name=DOMAIN,
             update_interval=None,
         )
-        self.client = LutronGrxClient(host, port)
+        self.client = LutronGrxClient(host, port, unit_configs_from_data(entry.data))
         self.entry = entry
 
     async def async_connect(self) -> None:

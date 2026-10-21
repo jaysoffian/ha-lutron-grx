@@ -1,21 +1,28 @@
 # Lutron GrafikEye GRX Integration for Home Assistant
 
-This integration controls a **Lutron GrafikEye 3504** via a **GRX-CI-RS232** control
-interface bridged to the network by a TCP-to-RS232 adapter.
+This integration controls **Lutron GrafikEye** control units via a
+**GRX-CI-RS232** control interface bridged to the network by a TCP-to-RS232
+adapter.
 
 ## Features
 
-- Select/report scene (0-16).
-- Set/report zone intensity (zones 1-4).
+- Select/report scene (0-16) for each configured control unit.
+- Set/report zone intensity for 2- to 24-zone control units.
+- Support multiple control units on the same MUX link (up to eight addresses).
 - Report GRX-CI-RS232 code revision.
 
 ## Requirements
 
-- A GRX-CI-RS232 connected to a single GRAFIK Eye 3000/4000-series control unit
-  at MUX address **1**.
+- A GRX-CI-RS232 connected to one or more GRAFIK Eye 3000/4000-series control
+  units on MUX addresses **1-8**. A 16-zone unit uses two consecutive addresses
+  and a 24-zone unit uses three.
 - The interface reachable over TCP via a serial-to-network adapter
   (9600 8N1 on the serial side; the adapter handles framing).
 - Recommended DIP switches: **7 ON** (report scene changes).
+
+The config flow probes for control units and asks you to confirm each unit's
+model, zone count, and starting MUX address. For a 16- or 24-zone unit, enter
+only the first address it occupies.
 
 ## Installation
 

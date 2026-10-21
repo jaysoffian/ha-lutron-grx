@@ -5,7 +5,8 @@
       "reconfigure_successful": "Connection settings updated."
     },
     "error": {
-      "cannot_connect": "Failed to connect to the GrafikEye GRX-CI-RS232. Please check the host and port of the TCP-to-serial adapter."
+      "cannot_connect": "Failed to connect to the GrafikEye GRX-CI-RS232. Please check the host and port of the TCP-to-serial adapter.",
+      "invalid_units": "Enter valid control unit details. Use comma-separated values in the same order as the MUX addresses."
     },
     "step": {
       "reconfigure": {
@@ -15,6 +16,15 @@
         },
         "description": "Update the IP address and port of the GRX-CI-RS232 TCP-to-serial adapter.",
         "title": "Reconfigure GrafikEye Connection"
+      },
+      "units": {
+        "data": {
+          "model": "Model(s)",
+          "units": "MUX Address(es)",
+          "zones": "Zone Count(s)"
+        },
+        "description": "Confirm the control units wired to this interface. Use comma-separated values in the same order as the MUX addresses; a single value applies to every unit. For 16- or 24-zone units, enter only the first address of the unit.",
+        "title": "Confirm Control Units"
       },
       "user": {
         "data": {
