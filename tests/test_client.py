@@ -13,6 +13,11 @@ from custom_components.lutron_grx.client import (
     _POLL_ON,
     GrxState,
     LutronGrxClient,
+    UnitConfig,
+    UnitInfo,
+    model_for_unit_info,
+    unit_configs_from_data,
+    validate_unit_configs,
 )
 from custom_components.lutron_grx.const import (
     MAX_INTENSITY,
@@ -356,6 +361,186 @@ def test_grxstate_defaults() -> None:
     assert state.connected is False
     assert state.current_scene is None
     assert state.unit_missing is False
+
+
+# ---------------------------------------------------------------------------
+# Multiple control units
+# ---------------------------------------------------------------------------
+
+
+def _make_multi_client() -> LutronGrxClient:
+    return LutronGrxClient(
+        "localhost",
+        0,
+        [
+            UnitConfig(1, 4, "GRX-3504"),
+            UnitConfig(2, 4, "GRX-3504"),
+        ],
+    )
+
+
+def test_unit_config_maps_zones_to_addresses() -> None:
+    config = UnitConfig(1, 16, "GRX-4516")
+    assert config.address_count == 2
+    assert config.addresses == (1, 2)
+    assert config.address_for_zone(1) == 1
+    assert config.address_for_zone(8) == 1
+    assert config.address_for_zone(9) == 2
+    assert config.zone_index(9) == 0
+    assert config.zone_index(16) == 7
+
+
+def test_24_zone_unit_spans_three_addresses() -> None:
+    config = UnitConfig(2, 24, "GRX-4524")
+    assert config.addresses == (2, 3, 4)
+    assert config.address_for_zone(17) == 4
+
+
+def test_unit_configs_reject_overlap() -> None:
+    with pytest.raises(ValueError, match="more than one"):
+        validate_unit_configs([UnitConfig(1, 16), UnitConfig(2, 4)])
+    with pytest.raises(ValueError, match="does not fit"):
+        UnitConfig(8, 16, "GRX-4516")
+
+
+def test_unit_configs_from_legacy_data() -> None:
+    assert unit_configs_from_data({}) == [UnitConfig()]
+
+
+def test_unit_configs_from_entry_data() -> None:
+    data = {
+        "units": [
+            UnitConfig(1, 4, "GRX-3504").as_dict(),
+            UnitConfig(2, 16, "GRX-4516").as_dict(),
+        ]
+    }
+    assert unit_configs_from_data(data) == [
+        UnitConfig(1, 4, "GRX-3504"),
+        UnitConfig(2, 16, "GRX-4516"),
+    ]
+
+
+def test_unit_configs_from_invalid_data_fall_back() -> None:
+    data = {"units": [{"address": 1, "zones": 16}, {"address": 2, "zones": 4}]}
+    assert unit_configs_from_data(data) == [UnitConfig()]
+
+
+def test_select_scene_second_unit(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_multi_client()
+    sent = _capture_sends(monkeypatch, client)
+    _run(client.select_scene(3, unit=2))
+    assert sent == [":A32"]
+    assert client.state.units[2].current_scene == 3
+    assert client.state.units[1].current_scene is None
+
+
+@pytest.mark.parametrize(
+    ("zone", "expected"),
+    [
+        (1, ":szi 1 1 0 * * * * * * *"),
+        (9, ":szi 2 1 0 * * * * * * *"),
+        (16, ":szi 2 1 * * * * * * * 7F"),
+    ],
+)
+def test_multi_address_zone_command(
+    monkeypatch: pytest.MonkeyPatch, zone: int, expected: str
+) -> None:
+    config = UnitConfig(1, 16, "GRX-4516")
+    client = LutronGrxClient("localhost", 0, [config])
+    sent = _capture_sends(monkeypatch, client)
+    _run(client.set_zone_intensity(zone, MAX_INTENSITY if zone == 16 else 0))
+    assert sent == [expected]
+    assert client.state.zone_intensities_for(config)[zone - 1] == (
+        MAX_INTENSITY if zone == 16 else 0
+    )
+
+
+def test_request_zone_intensities_for_all_addresses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = LutronGrxClient("localhost", 0, [UnitConfig(1, 16, "GRX-4516")])
+    sent = _capture_sends(monkeypatch, client)
+    _run(client.request_zone_intensities())
+    assert sent == [":rzi 1", ":rzi 2"]
+
+
+def test_parse_scene_status_multiple_units() -> None:
+    client = _make_multi_client()
+    client._on_readline("~:ss 12MMMMMM 1 OK")
+    assert client.state.units[1].current_scene == 1
+    assert client.state.units[2].current_scene == 2
+    assert client.state.units[3].unit_missing is True
+    assert client.state.scene_status == (1, 2, None, None, None, None, None, None)
+
+
+def test_parse_multi_address_zone_intensities() -> None:
+    config = UnitConfig(1, 16, "GRX-4516")
+    client = LutronGrxClient("localhost", 0, [config])
+    client._on_readline("~:zi 1 1 2 3 4 5 6 7 8 1 OK")
+    client._on_readline("~:zi 2 9 A B C D E F 10 1 OK")
+    assert client.state.zone_intensities_for(config) == tuple(range(1, 17))
+
+
+def test_parse_unit_info() -> None:
+    client = _make_client()
+    client._on_readline("~:mu 1 45 10 51 6 1 11 0 0 1 OK")
+    info = client.state.unit_info[1]
+    assert isinstance(info, UnitInfo)
+    assert info.unit_type == "45"
+    assert info.zones == 16
+    assert info.pll == 0x11
+    assert info.multi_address_index == 0
+    assert model_for_unit_info(info) == "GRX-4516"
+
+
+@pytest.mark.parametrize(
+    ("unit_type", "zones", "model"),
+    [("35", 4, "GRX-3504"), ("45", 2, "GRX-4502"), ("45", 24, "GRX-4524")],
+)
+def test_model_for_unit_info(unit_type: str, zones: int, model: str) -> None:
+    info = UnitInfo(
+        address=1,
+        unit_type=unit_type,
+        zones=zones,
+        code_rev="0",
+    )
+    assert model_for_unit_info(info) == model
+
+
+def test_detect_units_uses_rmu(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_client()
+    sent: list[str] = []
+
+    async def _fake_send(cmd: str) -> None:
+        sent.append(cmd)
+        if cmd == ":G":
+            client._on_readline("~:ss 12MMMMMM 1 OK")
+        elif cmd == ":rmu 1":
+            client._on_readline("~:mu 1 45 10 51 6 1 11 0 0 1 OK")
+
+    monkeypatch.setattr(client, "_send_command", _fake_send)
+    detected = _run(client.detect_units(timeout=0.05))
+    assert detected == [UnitConfig(1, 16, "GRX-4516")]
+    assert ":rmu 1" in sent
+    assert ":rmu 2" not in sent
+
+
+def test_detect_units_falls_back_to_rzi(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_client()
+    sent: list[str] = []
+
+    async def _fake_send(cmd: str) -> None:
+        sent.append(cmd)
+        if cmd == ":G":
+            client._on_readline("~:ss 1MMMMMMM 1 OK")
+        elif cmd == ":rzi 1":
+            client._on_readline("~:zi 1 20 40 60 7F 4 5 6 7 1 OK")
+
+    monkeypatch.setattr(client, "_send_command", _fake_send)
+    detected = _run(client.detect_units(timeout=0.05))
+    assert detected == [UnitConfig()]
+    assert ":rmu 1" in sent
+    assert ":rzi 1" in sent
 
 
 # ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .client import UnitConfig
 from .const import DOMAIN, MAX_SCENE, MIN_SCENE, SCENE_OPTIONS
 from .coordinator import LutronGrxCoordinator
 from .entity import LutronGrxEntity
@@ -20,33 +21,34 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the Lutron GrafikEye scene select."""
+    """Set up a scene select for each configured control unit."""
     coordinator: LutronGrxCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([LutronGrxSceneSelect(coordinator)])
+    async_add_entities(
+        LutronGrxSceneSelect(coordinator, unit)
+        for unit in coordinator.client.unit_configs
+    )
 
 
 class LutronGrxSceneSelect(LutronGrxEntity, SelectEntity):
-    """Scene select for the GrafikEye control unit."""
+    """Scene select for a GrafikEye control unit."""
 
     _attr_translation_key = "scene"
     _attr_icon = "mdi:lightbulb-group"
     _attr_options = SCENE_OPTIONS
 
-    def __init__(self, coordinator: LutronGrxCoordinator) -> None:
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_scene"
+    def __init__(
+        self,
+        coordinator: LutronGrxCoordinator,
+        unit: UnitConfig,
+    ) -> None:
+        super().__init__(coordinator, unit)
+        self._attr_unique_id = self._unit_unique_id("scene")
         self._optimistic_option: str | None = None
 
     def _update_attrs(self) -> None:
         super()._update_attrs()
-        data = self.coordinator.data
-        # The unit is unavailable for scene control when it is missing.
-        self._attr_available = bool(
-            self.coordinator.last_update_success
-            and data.connected
-            and not data.unit_missing
-        )
-        scene = data.current_scene
+        self._attr_available = self._unit_available()
+        scene = self.coordinator.data.current_scene_for(self.unit)
         if self._optimistic_option is not None:
             self._attr_current_option = self._optimistic_option
         elif scene is not None and MIN_SCENE <= scene <= MAX_SCENE:
@@ -64,7 +66,7 @@ class LutronGrxSceneSelect(LutronGrxEntity, SelectEntity):
         self._attr_current_option = option
         self.async_write_ha_state()
         try:
-            await self.coordinator.client.select_scene(int(option))
+            await self.coordinator.client.select_scene(int(option), unit=self.unit)
         except Exception:
             self._optimistic_option = None
             self._update_attrs()
